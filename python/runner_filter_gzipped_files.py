@@ -91,7 +91,7 @@ if __name__ == "__main__":
         logfile=logfile
     ))
 
-    logging.basicConfig(filename=logfile, level=logging.INFO)
+    logging.basicConfig(filename=logfile, level=logging.INFO, format="%(asctime)s %(message)s")
 
     logging.info("Process started. Time is {start_time}".format(start_time=start_time))
 
