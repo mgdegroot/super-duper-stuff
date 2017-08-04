@@ -58,10 +58,10 @@ def parse_args():
         "logfile_base": sys.argv[0][:-3]
     }
     parser = argparse.ArgumentParser()
-    parser.add_argument("src_glob", type=str, help="Source location as glob (e.g. ~/*.log.gz)")
-    parser.add_argument("dst_dir", type=str, help="Destination directory")
+    parser.add_argument("--src_glob", type=str, help="Source location as glob (e.g. ~/*.log.gz)")
+    parser.add_argument("--dst_dir", type=str, help="Destination directory")
     parser.add_argument("--match", type=str, default=result["match_str"],
-                        help="The string to match (literal, no regex yet")
+                        help="The string to match (literal, no regex yet)")
     parser.add_argument("--logfile", type=str, help="The base part of the logfile.")
 
     args = parser.parse_args()
@@ -77,11 +77,12 @@ def parse_args():
 
     return result
 
+
 if __name__ == "__main__":
     arguments = parse_args()
 
     start_time = datetime.datetime.now()
-    print(arguments["logfile_base"])
+
     logfile = "{basename}-{start_time:%Y%m%dT%H%M}.log".format(basename=arguments["logfile_base"], start_time=start_time)
     print("logging to {}".format(logfile))
     print("Using:\n\tsrc_glob: {src_glob}\n\tdst_dir: {dst_dir}\n\tmatch_str: {match_str}\n\tlogfile: {logfile}".format(
@@ -95,10 +96,12 @@ if __name__ == "__main__":
 
     logging.info("Process started. Time is {start_time}".format(start_time=start_time))
 
-    src_glob = os.path.expanduser("~/test/*.log.gz")
-    dst_dir = os.path.expanduser("~/test/filtered/")
 
-    result = filter_gzipped_files(src_glob=src_glob, dst_dir=dst_dir)
+    exit(0)
+    result = filter_gzipped_files(
+        src_glob=arguments["src_glob"],
+        dst_dir=arguments["dst_dir"],
+        filter_str=arguments["match_str"])
 
     end_time = datetime.datetime.now()
     time_taken = end_time - start_time
