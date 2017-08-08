@@ -42,23 +42,30 @@ def filter_gzipped_files(src_glob: str, dst_dir: str, filter_str: str = "bossche
     for src_filename in src_files:
         file_cnt += 1
 
-        with gzip.open(src_filename, "rb") as src_file:
-            dst_file_base = os.path.basename(src_filename)
+        dst_file_base = os.path.basename(src_filename)
+        # remove .gz extension from destination -->
+        dst_filename = os.path.join(dst_dir, dst_file_base)[:-3]
 
-            # remove .gz extension from destination -->
-            dst_filename = os.path.join(dst_dir, dst_file_base)[:-3]
-            print("writing to {}".format(dst_filename))
-            # when 'resume' is specified only proceed if file does not exist yet -->
-            # TODO: handle incomplete file (ie: crash in middle of file proc...
-            if resume and not os.path.exists(dst_filename):
-                with open(dst_filename, "w") as dst_file:
+        if resume and not os.path.expanduser(dst_filename):
+            try:
+                with gzip.open(src_filename, "rb") as src_file:
+                    print("writing to {}".format(dst_filename))
+                    # when 'resume' is specified only proceed if file does not exist yet -->
+                    # TODO: handle incomplete file (ie: crash in middle of file proc...
+                    # if resume and not os.path.exists(dst_filename):
+                    with open(dst_filename, "w") as dst_file:
 
-                    for src_line in src_file:
-                        line_cnt += 1
-                        str_line = src_line.decode("utf-8")
-                        if filter_str in str_line:
-                            match_cnt += 1
-                            dst_file.write(str_line)
+                        for src_line in src_file:
+                            line_cnt += 1
+                            str_line = src_line.decode("utf-8")
+                            if filter_str in str_line:
+                                match_cnt += 1
+                                dst_file.write(str_line)
+            except Exception as e:
+                # invalid gzip file will exit loop. Cath in broader exception handler only for these cases...
+                logging.error("File '{src_filename}' not processed. Error: {err_msg}.".format(src_filename=src_filename, err_msg=e))
+        else:
+            logging.info("File 'src_filename' already processed. Skipping...".format(src_filename=src_filename))
 
     result = {
         "file_count": file_cnt,
@@ -111,7 +118,6 @@ if __name__ == "__main__":
 
     logfile = "{basename}-{start_time:%Y%m%dT%H%M}.log".format(basename=arguments["logfile_base"],
                                                                start_time=start_time)
-    print("logging to {}".format(logfile))
     print("Using:\n\tsrc_glob: {src_glob}\n\tdst_dir: {dst_dir}\n\tmatch_str: {match_str}"
         "\n\tresume: {resume}\n\tlogfile: {logfile}".format(
         src_glob=arguments["src_glob"],
@@ -125,7 +131,6 @@ if __name__ == "__main__":
 
     logging.info("Process started. Time is {start_time}".format(start_time=start_time))
 
-    exit(0)
     result = filter_gzipped_files(
         src_glob=arguments["src_glob"],
         dst_dir=arguments["dst_dir"],
