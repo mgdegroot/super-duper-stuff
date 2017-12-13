@@ -342,7 +342,7 @@ def main():
 
         src_lines = load_src(url_countrylist)
         src_lines = filter_src(src_lines)
-        set_name = "block_{COUNTRY_CODE}".format(COUNTRY_CODE=user_opts[ARGS_COUNTRY_CODE])
+        set_name = "{COUNTRY_CODE}_blocks".format(COUNTRY_CODE=user_opts[ARGS_COUNTRY_CODE])
 
         if user_opts[ARGS_METHOD] == UpdateMethod.ENTRY:
             if user_opts[ARGS_FLUSH]:
