@@ -26,7 +26,7 @@ import argparse
 import pprint
 
 
-def filter_gzipped_files(src_glob: str, dst_dir: str, filter_str: str = "bossche-broek", resume: bool = True):
+def filter_gzipped_files(src_glob: str, dst_dir: str, filter_str: str = "bossche-broek", resume: bool = True, recursive: bool = False):
     """
     Walk all gzipped files matching <src_glob> for lines containing <filter_str> and write those
     under <dst_dir> under the same filename minus gz
@@ -36,19 +36,39 @@ def filter_gzipped_files(src_glob: str, dst_dir: str, filter_str: str = "bossche
     :param filter_str:
     :return:
     """
-    src_files = glob.glob(src_glob)
+
+    src_files = glob.glob(src_glob, recursive=recursive)
+
+
     file_cnt = 0
     line_cnt = 0
     match_cnt = 0
 
     for src_filename in src_files:
         file_cnt += 1
+        if recursive:
+            # TODO: replace bungiecode below with regex -->
 
-        dst_file_base = os.path.basename(src_filename)
+            # remove search root part -->
+            subdir_prefix_part = os.path.commonpath([src_glob, src_filename])
+            subdir_part = src_filename.replace(subdir_prefix_part, "")
+
+            # remove filename part -->
+            subdir_part = subdir_part.replace(os.path.basename(subdir_part), "")
+
+            # replace path separator with underscore and remove the first one -->
+            if subdir_part.startswith(os.path.sep):
+                subdir_part = subdir_part[1:]
+            subdir_part = subdir_part.replace(os.path.sep, "_")
+
+        else:
+            subdir_part = "";
+
+        dst_file_base = subdir_part + os.path.basename(src_filename)
         # remove .gz extension from destination -->
         dst_filename = os.path.join(dst_dir, dst_file_base)[:-3]
 
-        if resume and not os.path.expanduser(dst_filename):
+        if resume is False or (resume and not os.path.exists(os.path.expanduser(dst_filename))):
             try:
                 with gzip.open(src_filename, "rb") as src_file:
                     print("writing to {}".format(dst_filename))
@@ -67,7 +87,7 @@ def filter_gzipped_files(src_glob: str, dst_dir: str, filter_str: str = "bossche
                 # invalid gzip file will exit loop. Cath in broader exception handler only for these cases...
                 logging.error("File '{src_filename}' not processed. Error: {err_msg}.".format(src_filename=src_filename, err_msg=e))
         else:
-            logging.info("File 'src_filename' already processed. Skipping...".format(src_filename=src_filename))
+            logging.info("File '{src_filename}' already processed. Skipping...".format(src_filename=src_filename))
 
     result = {
         "file_count": file_cnt,
@@ -83,7 +103,8 @@ def parse_args():
         "dst_dir": None,
         "match_str": "bossche-broek",
         "logfile_base": sys.argv[0][:-3],
-        "resume": True
+        "resume": False,
+        "recursive": True,
     }
 
     parser = argparse.ArgumentParser()
@@ -92,8 +113,9 @@ def parse_args():
     parser.add_argument("--match", type=str, default=result["match_str"],
                         help="The string to match (literal, no regex yet)")
     parser.add_argument("--logfile", type=str, help="The base part of the logfile.")
-    parser.add_argument("--resume", action="store_true", default=True, help="Resume an earlier session")
+    parser.add_argument("--resume", action="store_true", default=result["resume"], help="Resume an earlier session")
     parser.add_argument("--reset", action="store_true", default=False, help="Restart even when files are present")
+    parser.add_argument("--recursive", action="store_true", default=result["recursive"], help="Recursively search for glob pattern")
 
     args = parser.parse_args()
 
@@ -109,6 +131,8 @@ def parse_args():
         result["resume"] = args.resume
     if args.reset:
         result["resume"] = False
+    if args.recursive:
+        result["recursive"] = True
 
     return result
 
@@ -121,12 +145,13 @@ if __name__ == "__main__":
     logfile = "{basename}-{start_time:%Y%m%dT%H%M}.log".format(basename=arguments["logfile_base"],
                                                                start_time=start_time)
     print("Using:\n\tsrc_glob: {src_glob}\n\tdst_dir: {dst_dir}\n\tmatch_str: {match_str}"
-        "\n\tresume: {resume}\n\tlogfile: {logfile}".format(
+        "\n\tresume: {resume}\n\tlogfile: {logfile}\n\trecursive: {recursive}".format(
         src_glob=arguments["src_glob"],
         dst_dir=arguments["dst_dir"],
         match_str=arguments["match_str"],
         resume=arguments["resume"],
-        logfile=logfile
+        logfile=logfile,
+        recursive=arguments["recursive"]
     ))
 
     logging.basicConfig(filename=logfile, level=logging.INFO, format="%(asctime)s %(message)s")
@@ -137,7 +162,9 @@ if __name__ == "__main__":
         src_glob=arguments["src_glob"],
         dst_dir=arguments["dst_dir"],
         filter_str=arguments["match_str"],
-        resume=arguments["resume"])
+        resume=arguments["resume"],
+        recursive=arguments["recursive"]
+    )
 
     end_time = datetime.datetime.now()
     time_taken = end_time - start_time
