@@ -62,7 +62,7 @@ def filter_gzipped_files(src_glob: str, dst_dir: str, filter_str: str = "bossche
             subdir_part = subdir_part.replace(os.path.sep, "_")
 
         else:
-            subdir_part = "";
+            subdir_part = ""
 
         dst_file_base = subdir_part + os.path.basename(src_filename)
         # remove .gz extension from destination -->
@@ -96,6 +96,12 @@ def filter_gzipped_files(src_glob: str, dst_dir: str, filter_str: str = "bossche
     }
     return result
 
+SRC_GLOB = "SRC_GLOB"
+DST_DIR = "DST_DIR"
+MATCH_STR = "MATCH_STR"
+LOGFILE_BASE = "LOGFILE_BASE"
+RESUME = "RESUME"
+RECURSIVE = "RECURSIVE"
 
 def parse_args():
     result = {
@@ -108,14 +114,21 @@ def parse_args():
     }
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("src_glob", type=str, help="Source location as glob (e.g. \"~/*.log.gz\")")
-    parser.add_argument("dst_dir", type=str, help="Destination directory")
+    parser.add_argument("src_glob", type=str,
+                        help="Source location as glob (e.g. \"~/*.log.gz\")")
+    parser.add_argument("dst_dir", type=str,
+                        help="Destination directory")
     parser.add_argument("--match", type=str, default=result["match_str"],
                         help="The string to match (literal, no regex yet)")
-    parser.add_argument("--logfile", type=str, help="The base part of the logfile.")
-    parser.add_argument("--resume", action="store_true", default=result["resume"], help="Resume an earlier session")
-    parser.add_argument("--reset", action="store_true", default=False, help="Restart even when files are present")
-    parser.add_argument("--recursive", action="store_true", default=result["recursive"], help="Recursively search for glob pattern")
+    parser.add_argument("--logfile", type=str,
+                        help="The base part of the logfile.")
+    parser.add_argument("--resume", action="store_true", default=result["resume"],
+                        help="Resume an earlier session")
+    parser.add_argument("--reset", action="store_true", default=False,
+                        help="Restart even when files are present")
+    parser.add_argument("--recursive", action="store_true", default=result["recursive"],
+                        help="Recursively search for glob pattern. Subdirectories are added to the filename, "
+                             "separators as underscores ('_')")
 
     args = parser.parse_args()
 
