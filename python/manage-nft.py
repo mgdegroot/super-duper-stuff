@@ -17,16 +17,20 @@ ARGS_SUPPORTS_FLUSH = "SUPPORTS_FLUSH"
 ARGS_TABLE = "TABLE"
 ARGS_SET = "SET"
 ARGS_UPDATE_ALL_DEFAULT = "UPDATE_ALL_DEFAULT"
+ARGS_FILES_ONLY = "FILES_ONLY"
+ARGS_OUTPUT_FILE = "OUTPUT_LOCATION"
 
 TEMPL_URL_COUNTRYBLOCKS = "http://www.ipdeny.com/ipblocks/data/countries/{COUNTRY_CODE}.zone"
+URL_EMERGING_THREATS = "http://rules.emergingthreats.net/fwrules/emerging-Block-IPs.txt"
 BIN_NFT = "/usr/bin/nft"
 PATH_TMP = "/tmp"
-PATH_TMPFILE = "/tmp/nft_tmpset.txt"
+# PATH_TMPFILE = "/tmp/nft_tmpset.txt"
 TEST_SET = "/home/marcel/test/nft/emerging-Block-IPs.txt"
 
 DFLT_TABLE = "inet filter"
 DFLT_SET = "wan_blocks"
 DFLT_FLUSH_SET = True
+DFLT_OUTPUT_FILE = "/tmp/nft_tmpset.conf"
 
 
 class UpdateMethod(Enum):
@@ -104,7 +108,7 @@ def transform_src(src:list, table:str, set_name:str):
     return result
 
 
-def write_to_temp(nft_set:str, tmp_file:str):
+def write_to_output(nft_set:str, tmp_file:str):
     with open(tmp_file, "w") as tmpfile:
         tmpfile.write(nft_set)
 
@@ -270,7 +274,7 @@ def parse_args():
     method_choices = [UpdateMethod.ENTRY.value, UpdateMethod.FILE.value]
 
     user_opts = {
-        ARGS_SRC: None,
+        ARGS_SRC: URL_EMERGING_THREATS,
         ARGS_COUNTRY_CODE: None,
         ARGS_METHOD: method_choices[0],
         ARGS_FLUSH: DFLT_FLUSH_SET,
@@ -278,11 +282,13 @@ def parse_args():
         ARGS_TABLE: DFLT_TABLE,
         ARGS_SET: DFLT_SET,
         ARGS_UPDATE_ALL_DEFAULT: False,
+        ARGS_FILES_ONLY: False,
+        ARGS_OUTPUT_FILE: DFLT_OUTPUT_FILE,
     }
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--src", type=str, required=False,
-                        help="resource to load (URI or file path)"
+    parser.add_argument("--src", type=str, required=False, default=user_opts[ARGS_SRC],
+                        help="resource to load (URI or file path). Defaults to emerging threats."
                         )
     parser.add_argument("--block-country", type=str, required=False,
                         help="activate blocklist for country. Use two-letter country code (ru,cn, ..."
@@ -305,16 +311,21 @@ def parse_args():
                         help="The set name to alter / update"
                         )
     parser.add_argument("--update-all-with-defaults", action="store_true", default=False)
+    parser.add_argument("--files-only", action="store_true", required=False,
+                        help="Just write the files that can be loaded with nft." )
+    parser.add_argument("--output-file", type=str, required=False, default=user_opts[ARGS_OUTPUT_FILE],
+                        help="The location to write output or temp files to.")
 
     args = parser.parse_args()
 
-    if not args.src and not args.block_country:
-        raise ValueError("Either --src or --block-country needs to be used...")
+    # if not args.src and not args.block_country:
+    #     raise ValueError("Either --src or --block-country needs to be used...")
 
     if args.src:
         user_opts[ARGS_SRC] = args.src
     if args.block_country:
         user_opts[ARGS_COUNTRY_CODE] = args.block_country
+        user_opts[ARGS_SRC] = None
     if args.method:
         user_opts[ARGS_METHOD] = UpdateMethod(args.method)
     if args.flush:
@@ -327,6 +338,10 @@ def parse_args():
         user_opts[ARGS_SET] = args.set
     if args.update_all_with_defaults:
         user_opts[ARGS_UPDATE_ALL_DEFAULT] = args.update_all_with_defaults
+    if args.files_only:
+        user_opts[ARGS_FILES_ONLY] = args.files_only
+    if args.output_file:
+        user_opts[ARGS_OUTPUT_FILE] = args.output_file
 
     return user_opts
 
@@ -344,7 +359,11 @@ def main():
         src_lines = filter_src(src_lines)
         set_name = "{COUNTRY_CODE}_blocks".format(COUNTRY_CODE=user_opts[ARGS_COUNTRY_CODE])
 
-        if user_opts[ARGS_METHOD] == UpdateMethod.ENTRY:
+        if user_opts[ARGS_FILES_ONLY]:
+            nft_set = transform_src(src_lines, user_opts[ARGS_TABLE], set_name)
+            write_to_output(nft_set, user_opts[ARGS_OUTPUT_FILE])
+
+        elif user_opts[ARGS_METHOD] == UpdateMethod.ENTRY:
             if user_opts[ARGS_FLUSH]:
                 flush_set(user_opts[ARGS_TABLE], set_name, user_opts[ARGS_SUPPORTS_FLUSH])
 
@@ -357,7 +376,11 @@ def main():
         src_lines = load_src(user_opts[ARGS_SRC])
         src_lines = filter_src(src_lines)
 
-        if user_opts[ARGS_METHOD] == UpdateMethod.ENTRY:
+        if user_opts[ARGS_FILES_ONLY]:
+            nft_set = transform_src(src_lines, user_opts[ARGS_TABLE], user_opts[ARGS_SET])
+            write_to_output(nft_set, user_opts[ARGS_OUTPUT_FILE])
+
+        elif user_opts[ARGS_METHOD] == UpdateMethod.ENTRY:
             if user_opts[ARGS_FLUSH]:
                 flush_set(user_opts[ARGS_TABLE], user_opts[ARGS_SET], user_opts[ARGS_SUPPORTS_FLUSH])
 
@@ -368,8 +391,8 @@ def main():
         elif user_opts[ARGS_METHOD] == UpdateMethod.FILE:
             # TODO: big sets seem to crash and not load using nft -f ...
             nft_set = transform_src(src_lines, user_opts[ARGS_TABLE], user_opts[ARGS_SET])
-            write_to_temp(nft_set, PATH_TMPFILE)
-            load_nft_rules_from_file(PATH_TMPFILE)
+            write_to_output(nft_set, user_opts[ARGS_OUTPUT_FILE])
+            load_nft_rules_from_file(user_opts[ARGS_OUTPUT_FILE])
 
 
 if __name__ == "__main__":
